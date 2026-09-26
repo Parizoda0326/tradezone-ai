@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { 
   AlertTriangle, 
   TrendingUp, 
@@ -45,9 +46,17 @@ export const ImportAnalytics: React.FC<ImportAnalyticsProps> = ({
   onConsultTech,
   externalSearchFilter = '',
 }) => {
+  const { formatVolumeUSD } = useAppSettings();
   const [filterType, setFilterType] = useState<'all' | 'redZone' | 'tech'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('Barchasi');
   const [localSearch, setLocalSearch] = useState<string>('');
+
+  const renderVolume = (rawFormatted: string) => {
+    const match = rawFormatted.match(/[\d.]+/);
+    if (!match) return rawFormatted;
+    const num = parseFloat(match[0]);
+    return formatVolumeUSD(num);
+  };
 
   const techCategories = [
     'Smartfonlar va aloqa',
@@ -353,7 +362,7 @@ export const ImportAnalytics: React.FC<ImportAnalyticsProps> = ({
                     <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
                       <span className="text-slate-400 block text-[10px]">Import Hajmi (Yillik):</span>
                       <span className="text-sm font-black text-white">
-                        {item.importVolumeFormatted}
+                        {renderVolume(item.importVolumeFormatted)}
                       </span>
                     </div>
 

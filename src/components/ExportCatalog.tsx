@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAppSettings } from '../context/AppSettingsContext';
 import { 
   Search, 
   Filter, 
@@ -32,6 +33,7 @@ export const ExportCatalog: React.FC<ExportCatalogProps> = ({
   onOpenProductDetail,
   externalSearchFilter = '',
 }) => {
+  const { formatPrice } = useAppSettings();
   const [searchTerm, setSearchTerm] = useState(externalSearchFilter);
   const [selectedCategory, setSelectedCategory] = useState<string>('Barchasi');
   const [gspOnly, setGspOnly] = useState(false);
@@ -237,7 +239,7 @@ export const ExportCatalog: React.FC<ExportCatalogProps> = ({
                 <div>
                   <span className="text-slate-400 block text-[10px]">O'rtacha jahon narxi:</span>
                   <span className="text-sm font-extrabold text-white">
-                    ${prod.averagePriceUsd.toLocaleString()}
+                    {formatPrice(prod.averagePriceUsd)}
                   </span>
                   <span className="text-slate-400 text-[11px]"> / {prod.unit}</span>
                 </div>

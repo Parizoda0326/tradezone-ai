@@ -37,6 +37,7 @@ import {
   INTERNATIONAL_HUBS, 
   DISTANCE_MATRIX 
 } from '../data/logisticsData';
+import { InteractiveLogisticsMap } from './InteractiveLogisticsMap';
 
 interface LogisticsRoadmapProps {
   onSendToChat?: (prompt: string) => void;
@@ -52,7 +53,7 @@ export const LogisticsRoadmap: React.FC<LogisticsRoadmapProps> = ({
   const [selectedCorridorFilter, setSelectedCorridorFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState(externalSearchFilter);
   const [selectedRoute, setSelectedRoute] = useState<TradeRoute | null>(null);
-  const [activeTab, setActiveTab] = useState<'map' | 'routes' | 'calculator'>('map');
+  const [activeTab, setActiveTab] = useState<'schematic' | 'map' | 'routes' | 'calculator'>('schematic');
 
   // Interactive Route Calculator State
   const [calcOrigin, setCalcOrigin] = useState<string>('Toshkent');
@@ -228,7 +229,23 @@ Iltimos, ushbu marshrut bo'yicha:
 
       {/* Main View Mode Selector Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* TAB 0: Namangan -> Xalqaro Jonli Sxematik Marshrut */}
+          <button
+            onClick={() => setActiveTab('schematic')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer shadow-sm ${
+              activeTab === 'schematic'
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/25 border border-amber-300'
+                : 'bg-slate-900/90 text-amber-300 hover:text-white hover:bg-slate-800 border border-amber-500/30'
+            }`}
+          >
+            <Compass className={`w-4 h-4 ${activeTab === 'schematic' ? 'text-slate-950' : 'text-amber-400'}`} />
+            <span>Namangan ➔ Xalqaro Marshrutlar (Jonli SXEMA)</span>
+            <span className="text-[10px] bg-slate-950 text-amber-300 px-1.5 py-0.2 rounded font-extrabold border border-amber-400/40">
+              JONLI
+            </span>
+          </button>
+
           <button
             onClick={() => setActiveTab('map')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer shadow-sm ${
@@ -238,7 +255,7 @@ Iltimos, ushbu marshrut bo'yicha:
             }`}
           >
             <Globe2 className="w-4 h-4" />
-            <span>Interaktiv Yo'l Xaritasi</span>
+            <span>5 Koridor Xaritasi</span>
           </button>
 
           <button
@@ -339,6 +356,13 @@ Iltimos, ushbu marshrut bo'yicha:
           </div>
         ))}
       </div>
+
+      {/* TAB 0: ANIMATED SCHEMATIC ROUTE MAP (Namangan -> Tashkent -> Khorgos -> Destinations) */}
+      {activeTab === 'schematic' && (
+        <div className="space-y-4">
+          <InteractiveLogisticsMap onSendToChat={onSendToChat} />
+        </div>
+      )}
 
       {/* TAB 1: INTERACTIVE MAP VISUALIZER */}
       {activeTab === 'map' && (

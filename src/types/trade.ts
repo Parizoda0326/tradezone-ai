@@ -90,7 +90,27 @@ export type AIChatPromptCategory =
   | 'calculator'   // 3. Moliyaviy kalkulyator
   | 'substitution';// 4. Import o'rnini bosish konsaltingi
 
-export type NavSection = 'export' | 'import' | 'logistics' | 'calculator' | 'rules' | 'tech';
+export type NavSection = 'export' | 'import' | 'rates' | 'logistics' | 'calculator' | 'rules' | 'tech';
+
+export interface CbuCurrency {
+  id: number;
+  Code: string;
+  Ccy: string;
+  CcyNm_RU: string;
+  CcyNm_UZ: string;
+  CcyNm_UZC: string;
+  CcyNm_EN: string;
+  Nominal: string;
+  Rate: string;
+  Diff: string;
+  Date: string;
+  flag?: string;
+  countryUz?: string;
+  symbol?: string;
+  isMajorPartner?: boolean;
+  iso2?: string;
+  flagUrl?: string;
+}
 
 export interface BorderCheckpoint {
   name: string;
@@ -165,6 +185,10 @@ export interface AISearchResult {
   marketOutlook: string;
   keyCertificates: string[];
   recommendedAction: string;
+  keyFacts?: string[];
+  mainPartners?: string[];
+  vatRate?: string;
+  isVoiceSearch?: boolean;
 }
 
 export interface ChatMessageItem {
@@ -175,4 +199,23 @@ export interface ChatMessageItem {
   timestamp: string;
   quickActions?: { label: string; action: string }[];
   calculationData?: CalculationResult;
+}
+
+export interface TradeAdvertisement {
+  id: string;
+  title: string;
+  category: string;
+  hsCode?: string;
+  price: string;
+  quantity: string;
+  origin: string;
+  description: string;
+  certificates?: string;
+  contactName: string;
+  contactPhone: string;
+  contactTelegram?: string;
+  contactEmail?: string;
+  location?: string;
+  createdAt: string;
+  isOwner?: boolean;
 }

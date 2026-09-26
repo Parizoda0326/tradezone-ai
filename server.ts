@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { INITIAL_EXPORT_PRODUCTS, INITIAL_IMPORT_STATISTICS, INITIAL_TECH_PRODUCTS } from './src/data/tradeDatabase';
+import { getCurrencyMeta } from './src/data/currencyData';
+import { INITIAL_SPOT_COMMODITIES, INITIAL_TRADE_RADAR_SIGNALS } from './src/data/spotAndRadarData';
 
 dotenv.config();
 
@@ -277,18 +279,24 @@ app.post('/api/ai-search', async (req: Request, res: Response) => {
         const prompt = `
 Foydalanuvchi qidirayotgan mahsulot yoki tovar: "${cleanQuery}"
 
-Sening vazifang: O'zbekiston tashqi iqtisodiy faoliyati (TIF TN / HS Code) va bojxona qoidalari bo'yicha quyidagi JSON formatida aniq va to'g'ri tahlil qaytar:
+Sening vazifang: O'zbekiston tashqi iqtisodiy faoliyati (TIF TN / HS Code), Bojxona kodeksi, stavkalari va xalqaro savdo preferensiyalari (GSP+, MDH erkin savdo shartnomalari) asosida quyidagi JSON formatida TO'G'RI VA FAKTLARGA ASOSLANGAN tahlil qaytarish:
 Faqat va faqat toza JSON formatida quyidagi kalitlar bilan javob ber (hech qanday markdown \`\`\`json belgilari shart emas):
 {
   "query": "${cleanQuery}",
-  "productName": "To'liq rasmiy nomi va toifasi",
-  "hsCode": "TIF TN kodi (masalan: 8517.13.00)",
+  "productName": "To'liq rasmiy nomi va toifasi (o'zbek va xalqaro nomi)",
+  "hsCode": "Aniq 6-10 raqamli TIF TN / HS Code (masalan: 0809.29.00)",
   "tradeType": "Eksport" yoki "Import" yoki "Ikkala yo'nalish",
-  "dutyRateUzbekistan": "O'zbekistonga olib kirishdagi bojxona boji va QQS stavkasi",
-  "gspPlusBenefit": "Yevropa Ittifoqiga GSP+ 0% imtiyozi yoki MDH erkin savdo shartnomasi bo'yicha imtiyoz",
-  "marketOutlook": "Bozor holati, talab, import/eksport dinamikasi va hajmi",
-  "keyCertificates": ["Sertifikat 1", "Sertifikat 2", "Sertifikat 3"],
-  "recommendedAction": "Tadbirkor yoki importyor/eksportyor uchun amaliy tavsiya"
+  "dutyRateUzbekistan": "Aniq bojxona boji stavkasi (% yoki $ miqdorida) + 12% QQS va bojxona yig'imi",
+  "gspPlusBenefit": "Yevropa Ittifoqiga GSP+ 0% imtiyozi yoki MDH 0% ST-1 preferensiyasi",
+  "marketOutlook": "Aniq faktlarga asoslangan bozor hajmi, yillik o'sish sur'ati va asosiy import/eksport dinamikasi",
+  "keyCertificates": ["Fitosanitariya / ST-1", "Muvofiqlik sertifikati", "GlobalG.A.P / Halal"],
+  "recommendedAction": "Tadbirkor yoki eksportyor/importyor uchun amaliy va qonuniy tavsiya",
+  "keyFacts": [
+    "Fakt 1: Asosiy bozorlar yoki ishlab chiqaruvchi mamlakatlar",
+    "Fakt 2: Optimal saqlash harorati yoki tashish talablari (agar tegishli bo'lsa)",
+    "Fakt 3: O'rtacha bozor narxi dinamikasi yoki rentabellik darajasi"
+  ],
+  "mainPartners": ["Davlat 1", "Davlat 2", "Davlat 3"]
 }
 `;
 
@@ -327,6 +335,8 @@ Faqat va faqat toza JSON formatida quyidagi kalitlar bilan javob ber (hech qanda
       marketOutlook: string;
       keyCertificates: string[];
       recommendedAction: string;
+      keyFacts?: string[];
+      mainPartners?: string[];
     } = {
       query: cleanQuery,
       productName: cleanQuery,
@@ -336,7 +346,13 @@ Faqat va faqat toza JSON formatida quyidagi kalitlar bilan javob ber (hech qanda
       gspPlusBenefit: 'GSP+ orqali 0% Yevropa boji yoki MDH preferensiyasi',
       marketOutlook: 'O\'zbekiston bozorida yuqori talabga ega tovar pozitsiyasi.',
       keyCertificates: ['Muvofiqlik sertifikati', 'Bojxona yuk deklaratsiyasi (BYuD)'],
-      recommendedAction: 'To\'g\'ridan-to\'g\'ri ishlab chiqaruvchi zavod bilan shartnoma tuzish va erkin iqtisodiy zonalarda rasmiylashtirish tavsiya etiladi.'
+      recommendedAction: 'To\'g\'ridan-to\'g\'ri ishlab chiqaruvchi zavod bilan shartnoma tuzish va erkin iqtisodiy zonalarda rasmiylashtirish tavsiya etiladi.',
+      keyFacts: [
+        'TIF TN klassifikatori bo\'yicha tovar laboratoriya tahlilidan o\'tkazilishi lozim',
+        'Incoterms FCA yoki DAP shartlarida yetkazib berish eng maqbul variant',
+        'To\'lovlar Tashqi savdo operatsiyalari yagona axborot tizimida (TSOYaEAT) hisobga olinadi'
+      ],
+      mainPartners: ['Xitoy', 'Rossiya', 'Turkiya']
     };
 
     if (q.includes('telefon') || q.includes('iphone') || q.includes('smartfon') || q.includes('samsung') || q.includes('xiaomi') || q.includes('8517')) {
@@ -458,6 +474,135 @@ app.get('/api/tech-products', (_req: Request, res: Response) => {
   res.json(INITIAL_TECH_PRODUCTS);
 });
 
+// In-memory cache for Central Bank of Uzbekistan (CBU) live rates
+let cachedCbuRates: any[] | null = null;
+let lastCbuFetchTime = 0;
+const CBU_CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache
+
+function getFallbackCbuRates() {
+  const fallbackList = [
+    { id: 68, Code: '840', Ccy: 'USD', CcyNm_UZ: 'AQSH dollari', CcyNm_RU: 'Доллар США', CcyNm_EN: 'US Dollar', Nominal: '1', Rate: '12850.40', Diff: '-5.47', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 20, Code: '978', Ccy: 'EUR', CcyNm_UZ: 'EVRO', CcyNm_RU: 'Евро', CcyNm_EN: 'Euro', Nominal: '1', Rate: '13840.15', Diff: '32.80', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 56, Code: '643', Ccy: 'RUB', CcyNm_UZ: 'Rossiya rubli', CcyNm_RU: 'Российский рубль', CcyNm_EN: 'Russian Ruble', Nominal: '1', Rate: '142.10', Diff: '0.85', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 14, Code: '156', Ccy: 'CNY', CcyNm_UZ: 'Xitoy yuani', CcyNm_RU: 'Китайский юань', CcyNm_EN: 'Yuan Renminbi', Nominal: '1', Rate: '1785.60', Diff: '2.40', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 35, Code: '398', Ccy: 'KZT', CcyNm_UZ: 'Qozog\'iston tengesi', CcyNm_RU: 'Казахский тенге', CcyNm_EN: 'Kazakhstani Tenge', Nominal: '1', Rate: '26.85', Diff: '-0.12', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 65, Code: '949', Ccy: 'TRY', CcyNm_UZ: 'Turkiya lirasi', CcyNm_RU: 'Турецкая лира', CcyNm_EN: 'Turkish Lira', Nominal: '1', Rate: '372.40', Diff: '-1.15', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 66, Code: '784', Ccy: 'AED', CcyNm_UZ: 'BAA dirhami', CcyNm_RU: 'Дирхам ОАЭ', CcyNm_EN: 'UAE Dirham', Nominal: '1', Rate: '3498.80', Diff: '-1.49', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 22, Code: '826', Ccy: 'GBP', CcyNm_UZ: 'Angliya funt sterlingi', CcyNm_RU: 'Фунт стерлингов', CcyNm_EN: 'Pound Sterling', Nominal: '1', Rate: '16680.50', Diff: '24.10', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 31, Code: '392', Ccy: 'JPY', CcyNm_UZ: 'Yaponiya iyenasi', CcyNm_RU: 'Японская иена', CcyNm_EN: 'Yen', Nominal: '1', Rate: '85.20', Diff: '0.34', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 37, Code: '410', Ccy: 'KRW', CcyNm_UZ: 'Koreya Respublikasi voni', CcyNm_RU: 'Вона Республики Корея', CcyNm_EN: 'Won', Nominal: '100', Rate: '924.30', Diff: '1.20', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 62, Code: '756', Ccy: 'CHF', CcyNm_UZ: 'Shveysariya franki', CcyNm_RU: 'Швейцарский франк', CcyNm_EN: 'Swiss Franc', Nominal: '1', Rate: '14420.00', Diff: '15.60', Date: new Date().toLocaleDateString('ru-RU') },
+    { id: 28, Code: '356', Ccy: 'INR', CcyNm_UZ: 'Hindiston rupiyasi', CcyNm_RU: 'Индийская рупия', CcyNm_EN: 'Indian Rupee', Nominal: '1', Rate: '152.10', Diff: '-0.25', Date: new Date().toLocaleDateString('ru-RU') },
+  ];
+
+  return fallbackList.map((item) => {
+    const meta = getCurrencyMeta(item.Ccy);
+    return {
+      ...item,
+      flag: meta.flag,
+      countryUz: meta.countryUz,
+      symbol: meta.symbol,
+      isMajorPartner: meta.isMajorPartner,
+      region: meta.region,
+      iso2: meta.iso2,
+      flagUrl: meta.flagUrl,
+    };
+  });
+}
+
+async function fetchCbuRates() {
+  const now = Date.now();
+  if (cachedCbuRates && now - lastCbuFetchTime < CBU_CACHE_DURATION_MS) {
+    return cachedCbuRates;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://cbu.uz/uz/arkhiv-kursov-valyut/json/', {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'TradeZone-AI/1.0',
+        'Accept': 'application/json',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`CBU HTTP error: ${res.status}`);
+    }
+
+    const data: any = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      const enriched = data.map((item: any) => {
+        const meta = getCurrencyMeta(item.Ccy);
+        return {
+          ...item,
+          flag: meta.flag,
+          countryUz: meta.countryUz,
+          symbol: meta.symbol,
+          isMajorPartner: meta.isMajorPartner,
+          region: meta.region,
+          iso2: meta.iso2,
+          flagUrl: meta.flagUrl,
+        };
+      });
+
+      cachedCbuRates = enriched;
+      lastCbuFetchTime = now;
+      return enriched;
+    }
+  } catch (err: any) {
+    console.warn('CBU API live fetch fallback triggered:', err.message);
+  }
+
+  if (cachedCbuRates) {
+    return cachedCbuRates;
+  }
+
+  return getFallbackCbuRates();
+}
+
+// API: Official Central Bank of Uzbekistan (CBU) FX Rates
+app.get('/api/cbu-rates', async (_req: Request, res: Response) => {
+  try {
+    const rates = await fetchCbuRates();
+    res.json({
+      success: true,
+      count: rates.length,
+      lastUpdated: new Date().toISOString(),
+      cbuDate: rates[0]?.Date || new Date().toLocaleDateString('ru-RU'),
+      rates,
+    });
+  } catch (err: any) {
+    res.json({
+      success: true,
+      count: 12,
+      lastUpdated: new Date().toISOString(),
+      cbuDate: new Date().toLocaleDateString('ru-RU'),
+      rates: getFallbackCbuRates(),
+    });
+  }
+});
+
+// API: Daily Spot Market Prices (Agro & Industrial Commodity Exchange)
+app.get('/api/market-spot-prices', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    commodities: INITIAL_SPOT_COMMODITIES,
+    lastUpdated: new Date().toISOString(),
+  });
+});
+
+// API: Daily Trade Radar & Actionable Market Signals
+app.get('/api/trade-radar-signals', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    signals: INITIAL_TRADE_RADAR_SIGNALS,
+    lastUpdated: new Date().toISOString(),
+  });
+});
+
 // API: Catalog and Statistics
 app.get('/api/export-products', (_req: Request, res: Response) => {
   res.json(INITIAL_EXPORT_PRODUCTS);
@@ -511,7 +656,7 @@ async function startServer() {
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);

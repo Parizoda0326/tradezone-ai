@@ -17,6 +17,10 @@ import { ProductDetailModal } from './components/ProductDetailModal';
 import { ArchitectureModal } from './components/ArchitectureModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AboutModal } from './components/AboutModal';
+import { TradeAdsModal } from './components/TradeAdsModal';
+import { DailyMarketAndRates } from './components/DailyMarketAndRates';
+import { MainContactFooter } from './components/MainContactFooter';
+import { AppSettingsProvider } from './context/AppSettingsContext';
 import { 
   INITIAL_EXPORT_PRODUCTS, 
   INITIAL_IMPORT_STATISTICS, 
@@ -50,6 +54,7 @@ export default function App() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isArchitectureOpen, setIsArchitectureOpen] = useState(false);
+  const [isAdsOpen, setIsAdsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [selectedProductForDetail, setSelectedProductForDetail] = useState<ExportProduct | null>(null);
@@ -100,121 +105,143 @@ export default function App() {
   };
 
   return (
-    <div 
-      className="min-h-screen text-slate-100 flex flex-col font-sans pb-28 relative bg-slate-950"
-      style={{
-        backgroundImage: `linear-gradient(to bottom, rgba(3, 7, 18, 0.82), rgba(3, 7, 18, 0.88), rgba(2, 6, 23, 0.94)), url(${tradezonaBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* Top Navbar */}
-      <Navbar
-        user={user}
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        onOpenOnboarding={() => setIsOnboardingOpen(true)}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        onOpenArchitecture={() => setIsArchitectureOpen(true)}
-        onOpenDrawer={() => setIsDrawerOpen(true)}
-        redZoneCount={redZoneCount}
-      />
+    <AppSettingsProvider>
+      <div 
+        className="min-h-screen text-slate-100 flex flex-col font-sans pb-28 relative bg-slate-950"
+        style={{
+          backgroundImage: `linear-gradient(to bottom, rgba(3, 7, 18, 0.82), rgba(3, 7, 18, 0.88), rgba(2, 6, 23, 0.94)), url(${tradezonaBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        {/* Top Navbar */}
+        <Navbar
+          user={user}
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+          onOpenCalculator={() => setIsCalculatorOpen(true)}
+          onOpenArchitecture={() => setIsArchitectureOpen(true)}
+          onOpenDrawer={() => setIsDrawerOpen(true)}
+          redZoneCount={redZoneCount}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        
-        {/* AI-Powered Smart Product Search Bar */}
-        <div className="pt-2 pb-2">
-          <AISmartSearchBar
-            onSelectProductForChat={(prompt) => setChatPrompt(prompt)}
-            onFilterCatalog={(query) => setSearchFilter(query)}
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+          
+          {/* AI-Powered Smart Product Search Bar */}
+          <div className="pt-2 pb-2">
+            <AISmartSearchBar
+              onSelectProductForChat={(prompt) => setChatPrompt(prompt)}
+              onFilterCatalog={(query) => setSearchFilter(query)}
+            />
+          </div>
+
+          {/* Section View Switching */}
+          {activeSection === 'export' && (
+            <ExportCatalog
+              products={exportProducts}
+              onConsultProduct={handleConsultProduct}
+              onOpenProductDetail={(prod) => setSelectedProductForDetail(prod)}
+              externalSearchFilter={searchFilter}
+            />
+          )}
+
+          {(activeSection === 'import' || (activeSection as any) === 'tech') && (
+            <ImportAnalytics
+              statistics={importStats}
+              onConsultSubstitution={handleConsultSubstitution}
+              onConsultTech={handleConsultTech}
+              externalSearchFilter={searchFilter}
+            />
+          )}
+
+          {activeSection === 'rates' && (
+            <DailyMarketAndRates
+              onSendToChat={(prompt) => setChatPrompt(prompt)}
+              onOpenCalculatorWithRate={() => setIsCalculatorOpen(true)}
+            />
+          )}
+
+          {activeSection === 'logistics' && (
+            <LogisticsRoadmap
+              onSendToChat={(prompt) => setChatPrompt(prompt)}
+              externalSearchFilter={searchFilter}
+            />
+          )}
+
+          {/* ASOSIY SAHIFA OXIRIGA BOG'LANISH VA ALOQA MA'LUMOTLARI */}
+          <MainContactFooter
+            onOpenCalculator={() => setIsCalculatorOpen(true)}
+            onOpenChatWithPrompt={(prompt) => setChatPrompt(prompt)}
           />
-        </div>
 
-        {/* Section View Switching */}
-        {activeSection === 'export' && (
-          <ExportCatalog
-            products={exportProducts}
-            onConsultProduct={handleConsultProduct}
-            onOpenProductDetail={(prod) => setSelectedProductForDetail(prod)}
-            externalSearchFilter={searchFilter}
-          />
-        )}
+        </main>
 
-        {(activeSection === 'import' || (activeSection as any) === 'tech') && (
-          <ImportAnalytics
-            statistics={importStats}
-            onConsultSubstitution={handleConsultSubstitution}
-            onConsultTech={handleConsultTech}
-            externalSearchFilter={searchFilter}
-          />
-        )}
+        {/* Persistent Floating AI Chat (Docked at bottom) */}
+        <FloatingAIChat
+          user={user}
+          initialPrompt={chatPrompt}
+        />
 
-        {activeSection === 'logistics' && (
-          <LogisticsRoadmap
-            onSendToChat={(prompt) => setChatPrompt(prompt)}
-            externalSearchFilter={searchFilter}
-          />
-        )}
+        {/* Top Right Navigation Drawer Menu */}
+        <NavigationDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          activeSection={activeSection}
+          onSelectSection={(sec) => setActiveSection(sec)}
+          onOpenCalculator={() => setIsCalculatorOpen(true)}
+          onOpenArchitecture={() => setIsArchitectureOpen(true)}
+          onOpenAds={() => setIsAdsOpen(true)}
+          onOpenProfile={() => setIsOnboardingOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenAbout={() => setIsAboutOpen(true)}
+          user={user}
+          redZoneCount={redZoneCount}
+        />
 
-      </main>
+        {/* Modals */}
+        <OnboardingModal
+          isOpen={isOnboardingOpen}
+          onClose={() => setIsOnboardingOpen(false)}
+          currentUser={user}
+          onSaveUser={handleSaveUser}
+        />
 
-      {/* Persistent Floating AI Chat (Docked at bottom) */}
-      <FloatingAIChat
-        user={user}
-        initialPrompt={chatPrompt}
-      />
+        <TradeAdsModal
+          isOpen={isAdsOpen}
+          onClose={() => setIsAdsOpen(false)}
+          user={user}
+        />
 
-      {/* Top Right Navigation Drawer Menu */}
-      <NavigationDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        activeSection={activeSection}
-        onSelectSection={(sec) => setActiveSection(sec)}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        onOpenArchitecture={() => setIsArchitectureOpen(true)}
-        onOpenProfile={() => setIsOnboardingOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAbout={() => setIsAboutOpen(true)}
-        user={user}
-        redZoneCount={redZoneCount}
-      />
+        <FinancialCalculatorModal
+          isOpen={isCalculatorOpen}
+          onClose={() => setIsCalculatorOpen(false)}
+          onSendToChat={(prompt) => setChatPrompt(prompt)}
+        />
 
-      {/* Modals */}
-      <OnboardingModal
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        currentUser={user}
-        onSaveUser={handleSaveUser}
-      />
+        <ProductDetailModal
+          product={selectedProductForDetail}
+          onClose={() => setSelectedProductForDetail(null)}
+          onConsult={(product, mode) => handleConsultProduct(product, mode)}
+        />
 
-      <FinancialCalculatorModal
-        isOpen={isCalculatorOpen}
-        onClose={() => setIsCalculatorOpen(false)}
-        onSendToChat={(prompt) => setChatPrompt(prompt)}
-      />
+        <ArchitectureModal
+          isOpen={isArchitectureOpen}
+          onClose={() => setIsArchitectureOpen(false)}
+        />
 
-      <ProductDetailModal
-        product={selectedProductForDetail}
-        onClose={() => setSelectedProductForDetail(null)}
-        onConsult={(product, mode) => handleConsultProduct(product, mode)}
-      />
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
 
-      <ArchitectureModal
-        isOpen={isArchitectureOpen}
-        onClose={() => setIsArchitectureOpen(false)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-
-      <AboutModal
-        isOpen={isAboutOpen}
-        onClose={() => setIsAboutOpen(false)}
-      />
-    </div>
+        <AboutModal
+          isOpen={isAboutOpen}
+          onClose={() => setIsAboutOpen(false)}
+        />
+      </div>
+    </AppSettingsProvider>
   );
 }

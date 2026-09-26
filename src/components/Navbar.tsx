@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   ArrowUpRight, 
@@ -14,7 +14,8 @@ import {
   Menu,
   Layers,
   Flame,
-  Zap
+  Zap,
+  Coins
 } from 'lucide-react';
 import { NavSection, UserProfile, UserRole } from '../types/trade';
 
@@ -39,6 +40,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenDrawer,
   redZoneCount,
 }) => {
+  const [cbuLiveTicker, setCbuLiveTicker] = useState<{ usd: string; eur: string; rub: string; cny: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/cbu-rates')
+      .then(r => r.json())
+      .then(data => {
+        if (data && Array.isArray(data.rates)) {
+          const usd = data.rates.find((x: any) => x.Ccy === 'USD')?.Rate || '12,850.40';
+          const eur = data.rates.find((x: any) => x.Ccy === 'EUR')?.Rate || '13,840.15';
+          const rub = data.rates.find((x: any) => x.Ccy === 'RUB')?.Rate || '142.10';
+          const cny = data.rates.find((x: any) => x.Ccy === 'CNY')?.Rate || '1,785.60';
+          setCbuLiveTicker({ usd, eur, rub, cny });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case 'TADBIRKOR': return 'Tadbirkor';
@@ -68,28 +86,44 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-amber-500/20 shadow-xl shadow-black/40">
-      {/* Top micro info bar */}
+      {/* Top micro info bar with live CBU rates ticker */}
       <div className="bg-slate-950 text-slate-300 text-xs py-1.5 px-4 hidden sm:block border-b border-white/5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-5">
             <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-              TradeZone AI: Xalqaro Eksport, Import & Yuqori Texnologiyalar Platformasi
+              TradeZone AI: Eksport, Import, Valyuta & Yuqori Texnologiyalar
             </span>
             <span className="text-slate-400 hidden lg:inline">
               GSP+ Yevropa Ittifoqiga 6,200+ tovar 0% boj bilan
             </span>
           </div>
-          <div className="flex items-center space-x-4">
+
+          <div className="flex items-center space-x-3.5 text-[11px]">
+            {/* Live CBU Rates Ticker */}
+            <button
+              onClick={() => setActiveSection('rates')}
+              className="flex items-center gap-2 px-2 py-0.5 rounded bg-slate-900/90 border border-amber-500/30 text-amber-300 hover:text-white hover:border-amber-400 transition cursor-pointer font-mono"
+              title="Markaziy Bank valyuta kurslariga o'tish"
+            >
+              <span>🇺🇸 {cbuLiveTicker?.usd || '12,850'}</span>
+              <span className="text-slate-600">|</span>
+              <span>🇪🇺 {cbuLiveTicker?.eur || '13,840'}</span>
+              <span className="text-slate-600">|</span>
+              <span>🇷🇺 {cbuLiveTicker?.rub || '142.1'}</span>
+              <span className="text-slate-600">|</span>
+              <span>🇨🇳 {cbuLiveTicker?.cny || '1,785'}</span>
+            </button>
+
+            <span className="text-slate-700">|</span>
+
             <button 
               onClick={onOpenArchitecture}
               className="text-slate-300 hover:text-cyan-300 flex items-center gap-1 transition-all duration-150 active:scale-95 cursor-pointer"
             >
               <Code2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Arxitektura (4-Qadam)</span>
+              <span>Arxitektura</span>
             </button>
-            <span className="text-slate-700">|</span>
-            <span className="text-cyan-400/90 font-mono">1 USD = 12,850 UZS</span>
           </div>
         </div>
       </div>
@@ -123,12 +157,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[10px] tracking-wide text-slate-400 font-semibold hidden sm:block">
-                Eksport, Import & Yuqori Texnologiyalar
+                Eksport, Import, Valyuta & Texnologiyalar
               </p>
             </div>
           </div>
 
-          {/* Module Switcher Tabs (Separated with generous gaps, NOT stuck together) */}
+          {/* Module Switcher Tabs */}
           <div className="hidden md:flex items-center gap-3 lg:gap-4.5">
             {/* 1-Bo'lim: EKSPORT */}
             <button
@@ -196,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </button>
 
-            {/* TOP RIGHT 3-LINES MENU BUTTON (Only 3 lines icon, no text) */}
+            {/* TOP RIGHT 3-LINES MENU BUTTON */}
             <button
               onClick={onOpenDrawer}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-900/90 hover:bg-amber-500 hover:text-slate-950 text-amber-400 flex items-center justify-center transition-all duration-150 active:scale-95 hover:scale-105 hover:shadow-lg hover:shadow-amber-500/30 cursor-pointer border border-amber-500/40 shadow-sm"

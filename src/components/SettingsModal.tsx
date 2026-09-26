@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAppSettings, AppLanguage, AppCurrency } from '../context/AppSettingsContext';
 import { 
   X, 
   Settings, 
@@ -24,13 +25,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [language, setLanguage] = useState<'uz' | 'en' | 'ru'>(() => {
-    return (localStorage.getItem('tradezone_lang') as 'uz' | 'en' | 'ru') || 'uz';
-  });
+  const { 
+    language: currentAppLang, 
+    currency: currentAppCurr, 
+    setLanguage: setAppLang, 
+    setCurrency: setAppCurr 
+  } = useAppSettings();
 
-  const [currency, setCurrency] = useState<'USD' | 'UZS' | 'EUR'>(() => {
-    return (localStorage.getItem('tradezone_currency') as 'USD' | 'UZS' | 'EUR') || 'USD';
-  });
+  const [language, setLanguage] = useState<AppLanguage>(currentAppLang);
+  const [currency, setCurrency] = useState<AppCurrency>(currentAppCurr);
 
   const [notifications, setNotifications] = useState({
     redZone: true,
@@ -40,6 +43,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [aiModelMode, setAiModelMode] = useState<'flash' | 'pro'>('flash');
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setLanguage(currentAppLang);
+    setCurrency(currentAppCurr);
+  }, [currentAppLang, currentAppCurr, isOpen]);
 
   useEffect(() => {
     try {
@@ -55,8 +63,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    localStorage.setItem('tradezone_lang', language);
-    localStorage.setItem('tradezone_currency', currency);
+    setAppLang(language);
+    setAppCurr(currency);
     localStorage.setItem('tradezone_notifs', JSON.stringify(notifications));
     setIsSaved(true);
 
@@ -69,6 +77,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleResetDefaults = () => {
     setLanguage('uz');
     setCurrency('USD');
+    setAppLang('uz');
+    setAppCurr('USD');
     setNotifications({
       redZone: true,
       gspPlus: true,
